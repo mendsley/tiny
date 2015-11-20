@@ -81,6 +81,36 @@ namespace tiny
 	{
 		return endian.little ? __builtin_bswap64(v) : v;
 	}
+
+	static inline uint16_t endianFromLittle(uint16_t v)
+	{
+		return endian.little ? v : __builtin_bswap16(v);
+	}
+
+	static inline uint32_t endianFromLittle(uint32_t v)
+	{
+		return endian.little ? v : __builtin_bswap32(v);
+	}
+
+	static inline uint64_t edianFromLittle(uint64_t v)
+	{
+		return endian.little ? v : __builtin_bswap64(v);
+	}
+
+	static inline uint16_t endianToLittle(uint16_t v)
+	{
+		return endian.little ? v : __builtin_bswap16(v);
+	}
+
+	static inline uint32_t endianToLittle(uint32_t v)
+	{
+		return endian.little ? v : __builtin_bswap32(v);
+	}
+
+	static inline uint64_t endianToLittle(uint64_t v)
+	{
+		return endian.little ? v : __builtin_bswap64(v);
+	}
 }
 
 #if defined(_MSC_VER)

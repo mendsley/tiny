@@ -74,7 +74,7 @@ uint32_t peer::meshConnectToPeer(Mesh* m, uint64_t remoteId, const uint8_t* remo
 	return InvalidMeshPeer;
 }
 
-void peer::meshDisconnectPeer(Mesh* m, uint32_t peer, uint64_t id)
+void peer::meshDisconnectPeer(Mesh* m, uint32_t peer)
 {
 }
 

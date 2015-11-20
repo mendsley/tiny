@@ -24,24 +24,32 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TINY_AUDIO__TINYAUDIO_H
-#define TINY_AUDIO__TINYAUDIO_H
+#ifndef TINY_VOICE__ENGINE_H
+#define TINY_VOICE__ENGINE_H
+
+#include <stdint.h>
 
 namespace tiny
 {
-	namespace audio
+	namespace audio { class ICaptureDevice; }
+
+	namespace voice
 	{
-		struct IDeviceEnumeration;
+		struct Engine;
+		struct Source;
 
-		// Core interface for interfacing with tinyaudio
-		class Engine
-		{
-		public:
-			Engine();
-			~Engine();
+		Engine* engineCreate(audio::ICaptureDevice* microphone, uint32_t sampleRate = 48000);
+		void engineRelease(Engine* e);
 
-		};
+		Source* engineAddSource(Engine* e);
+		void engineRemoveSource(Engine* e, Source* s);
+
+		uint32_t engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacket);
+		void engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uint32_t npacket);
+
+		uint32_t engineGetSourceAudio(Engine* e, Source* s, const float** monoSamples);
+		void engineConsumeSourceAudio(Engine* e, Source* s, uint32_t samples);
 	}
 }
 
-#endif // TINY_AUDIO__TINYAUDIO_H
+#endif // TINY_VOICE__ENGINE_H

@@ -181,7 +181,7 @@ bool XAudio2RenderDevice::createSourceVoice()
 	return true;
 }
 
-void CALLBACK XAudio2RenderDevice::OnBufferEnd(void* context)
+void CALLBACK XAudio2RenderDevice::OnBufferEnd(void* /*context*/)
 {
 	ReleaseSemaphore(bufferSema, 1, nullptr);
 }
@@ -343,7 +343,7 @@ static bool xaudio2EnumerateDevices(DeviceType::E type, uint32_t moduleId, IDevi
 	return true;
 }
 
-static IRenderDevice* xaudio2AcquireRenderDevice(uint32_t deviceId, int desiredSampleRate)
+static IRenderDevice* xaudio2AcquireRenderDevice(uint32_t deviceId, int /*desiredSampleRate*/)
 {
 	Context ctx;
 	if (!ctx.load())

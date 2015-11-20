@@ -2,6 +2,9 @@ local ROOT_DIR = path.join(path.getdirectory(_SCRIPT), ".") .. "/"
 local EXAMPLES_DIR = (ROOT_DIR .. "examples/")
 
 solution "tiny_sln"
+	location (".build/projects/" .. _ACTION)
+	objdir (".build/%{cfg.platform}_" .. _ACTION .. "/obj/%{cfg.buildcfg}/%{prj.name}")
+
 	platforms {
 		"x32",
 		"x64",
@@ -17,6 +20,7 @@ solution "tiny_sln"
 		"Symbols",
 		"StaticRuntime",
 	}
+	warnings "Extra"
 
 	configuration "Release"
 		optimize "full"
@@ -53,3 +57,4 @@ example_project("test")
 example_project("twopeers")
 example_project("audio_sin")
 example_project("audio_micecho")
+example_project("voip")

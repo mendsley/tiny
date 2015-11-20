@@ -87,6 +87,40 @@ void Linear::resampleMono(const float* in, int samplesIn, float* out, int sample
 	prevSamples[0] = out[0];
 }
 
+void Linear::resampleStereoToMono(const float* in, int samplesIn, float* out, int samplesOut)
+{
+	const float rate = static_cast<float>(samplesIn)/static_cast<float>(samplesOut);
+	float* outEnd = out + (samplesOut) - 1;
+
+	float pos = rate;
+	while (pos < 1.0f)
+	{
+		out[0] = prevSamples[0] + pos*(in[0] - prevSamples[0]);
+		out[0] += prevSamples[1] + pos*(in[1] - prevSamples[1]);
+		out[0] /= 2.0f;
+	}
+
+	while (out < outEnd)
+	{
+		float posFloor = floorf(pos);
+		int index = 2*static_cast<int>(floorf(posFloor));
+		out[0] = in[index-2] + (in[index+0] - in[index-2]) * (pos - posFloor);
+		out[0] += in[index-1] + (in[index+1] - in[index-1]) * (pos - posFloor);
+		out[0] /= 2.0f;
+
+		++out;
+		pos += rate;
+	}
+
+	out[0] = in[2*samplesIn-2];
+	out[0] += in[2*samplesIn-1];
+	out[0] /= 2.0f;
+
+	// copy last sample for next run
+	prevSamples[0] = in[2*samplesIn-2];
+	prevSamples[1] = in[2*samplesIn-1];
+}
+
 void Linear::resampleMonoToStereo(const float* in, int samplesIn, float* out, int samplesOut)
 {
 	const float rate = static_cast<float>(samplesIn)/static_cast<float>(samplesOut);

@@ -31,17 +31,17 @@
 using namespace tiny;
 using namespace audio;
 
-static bool nullModule_enumerateDevice(DeviceType::E type, uint32_t moduleId, IDeviceEnumeration* e)
+static bool nullModule_enumerateDevice(DeviceType::E /*type*/, uint32_t /*moduleId*/, IDeviceEnumeration* /*e*/)
 {
 	return false;
 }
 
-static ICaptureDevice* nullModule_acquireCaptureDevice(uint32_t deviceId)
+static ICaptureDevice* nullModule_acquireCaptureDevice(uint32_t /*deviceId*/)
 {
 	return nullptr;
 }
 
-static IRenderDevice* nullModule_acqureRenderDevice(uint32_t deviceId, int desiredSampleRate)
+static IRenderDevice* nullModule_acqureRenderDevice(uint32_t /*deviceId*/, int /*desiredSampleRate*/)
 {
 	return nullptr;
 }

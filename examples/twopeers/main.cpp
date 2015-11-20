@@ -38,7 +38,7 @@ using namespace tiny;
 using namespace tiny::crypto;
 using namespace tiny::peer;
 
-static void meshThread(const uint8_t* key, uint32_t nkey, uint64_t id, std::future<std::vector<uint8_t>>& incomingAddress, std::promise<std::vector<uint8_t>>& outgoingAddress)
+static void meshThread(const uint8_t* key, uint32_t nkey, uint64_t id, std::future<std::vector<uint8_t>> incomingAddress, std::promise<std::vector<uint8_t>>& outgoingAddress)
 {
 	Mesh* m = meshCreate(7, id, 0);
 	if (!m)

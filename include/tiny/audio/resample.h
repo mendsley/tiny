@@ -46,6 +46,7 @@ namespace tiny
 				int outputSamples(int inputSamples) const;
 
 				void resampleMono(const float* in, int samplesIn, float* out, int samplesOut);
+				void resampleStereoToMono(const float* in, int samplesIn, float* out, int samplesOut);
 				void resampleMonoToStereo(const float* in, int samplesIn, float* out, int samplesOut);
 				void resampleStereo(const float* in, int samplesIn, float* out, int samplesOut);
 

@@ -39,13 +39,13 @@ namespace tiny
 			virtual void release() = 0;
 
 			virtual int sampleRate() const = 0;
-			virtual int samplesPer16ms() const = 0;
+			virtual int samplesPer10ms() const = 0;
 			virtual int channels() const = 0;
 
 			virtual bool start() = 0;
 			virtual void stop() = 0;
 
-			virtual const float* get16msOfSamples() = 0;
+			virtual const float* get10msOfSamples() = 0;
 
 		protected:
 			virtual ~ICaptureDevice() = 0;

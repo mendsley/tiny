@@ -50,14 +50,14 @@ namespace
 	class WasapiCaptureDevice : public ICaptureDevice
 	{
 	public:
-		WasapiCaptureDevice(IAudioClient* client, IAudioCaptureClient* captureClient, int sampleRate, int samplesPer16ms, int channels)
+		WasapiCaptureDevice(IAudioClient* client, IAudioCaptureClient* captureClient, int sampleRate, int samplesPer10ms, int channels)
 			: client(client)
 			, captureClient(captureClient)
 			, deviceSampleRate(sampleRate)
-			, deviceSamplesPer16ms(samplesPer16ms)
+			, deviceSamplesPer10ms(samplesPer10ms)
 			, deviceChannels(channels)
 		{
-			monoBuffer.reserve(channels*samplesPer16ms);
+			buffer.reserve(channels*samplesPer10ms);
 		}
 
 		virtual void release()
@@ -70,9 +70,9 @@ namespace
 			return deviceSampleRate;
 		}
 
-		virtual int samplesPer16ms() const
+		virtual int samplesPer10ms() const
 		{
-			return deviceSamplesPer16ms;
+			return deviceSamplesPer10ms;
 		}
 
 		virtual int channels() const
@@ -96,14 +96,14 @@ namespace
 			client->Stop();
 		}
 
-		virtual const float* get16msOfSamples()
+		virtual const float* get10msOfSamples()
 		{
 			// prune any data still in the buffer
-			int currentSize = static_cast<int>(monoBuffer.size())/deviceChannels;
-			if (currentSize >= deviceSamplesPer16ms)
+			int currentSize = static_cast<int>(buffer.size())/deviceChannels;
+			if (currentSize >= deviceSamplesPer10ms)
 			{
-				monoBuffer.erase(monoBuffer.begin(), monoBuffer.begin() + deviceChannels*deviceSamplesPer16ms);
-				currentSize -= deviceSamplesPer16ms;
+				buffer.erase(buffer.begin(), buffer.begin() + deviceChannels*deviceSamplesPer10ms);
+				currentSize -= deviceSamplesPer10ms;
 			}
 
 			// do we have any pending data
@@ -131,19 +131,22 @@ namespace
 			}
 
 			const float* floatData = reinterpret_cast<const float*>(data);
-			monoBuffer.insert(monoBuffer.end(), floatData, floatData+framesAvailable);
+			buffer.insert(buffer.end(), floatData, floatData+framesAvailable*deviceChannels);
 			captureClient->ReleaseBuffer(framesAvailable);
 
 			// enough data to return to caller?
-			if (currentSize + static_cast<int>(framesAvailable) >= deviceSamplesPer16ms)
+			if (currentSize + static_cast<int>(framesAvailable) >= deviceSamplesPer10ms)
 			{
-				return monoBuffer.data();
+				return buffer.data();
 			}
 
 			return nullptr;
 		}
 
 	private:
+		WasapiCaptureDevice(const WasapiCaptureDevice&); // = delete
+		WasapiCaptureDevice& operator=(const WasapiCaptureDevice&); // = delete
+
 		~WasapiCaptureDevice()
 		{
 			captureClient->Release();
@@ -152,9 +155,9 @@ namespace
 
 		IAudioClient* const client;
 		IAudioCaptureClient* const captureClient;
-		std::vector<float> monoBuffer;
+		std::vector<float> buffer;
 		const int deviceSampleRate;
-		const int deviceSamplesPer16ms;
+		const int deviceSamplesPer10ms;
 		const int deviceChannels;
 	};
 
@@ -231,6 +234,9 @@ namespace
 		}
 
 	private:
+		WasapiRenderDevice(const WasapiRenderDevice&); // = delete
+		WasapiRenderDevice& operator=(const WasapiRenderDevice&); // = delete
+
 		~WasapiRenderDevice()
 		{
 			stop();
@@ -418,7 +424,7 @@ static ICaptureDevice* wasapiAcquireCaptureDevice(uint32_t deviceId)
 		const int frequency = frequenciesToCheck[ii];
 		format.nSamplesPerSec = frequency;
 
-		for (int channels = 1; channels <= 2; ++channels)
+		for (WORD channels = 1; channels <= 2; ++channels)
 		{
 			format.nChannels = channels;
 			format.nBlockAlign = format.nChannels*format.wBitsPerSample/8;
@@ -446,7 +452,9 @@ static ICaptureDevice* wasapiAcquireCaptureDevice(uint32_t deviceId)
 		return nullptr;
 	}
 
-	hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_NOPERSIST, 0, 0, &format, NULL);
+	// request 60ms buffer
+	static const REFERENCE_TIME bufferTime = 60 * 10000;
+	hr = client->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_NOPERSIST, bufferTime, 0, &format, NULL);
 	if (FAILED(hr))
 	{
 		client->Release();
@@ -469,8 +477,8 @@ static ICaptureDevice* wasapiAcquireCaptureDevice(uint32_t deviceId)
 		return nullptr;
 	}
 
-	const UINT framesPer16ms = format.nSamplesPerSec*16/1000;
-	return new WasapiCaptureDevice(client, captureClient, format.nSamplesPerSec, framesPer16ms, static_cast<int>(format.nChannels));
+	const UINT framesPer10ms = format.nSamplesPerSec*10/1000;
+	return new WasapiCaptureDevice(client, captureClient, format.nSamplesPerSec, framesPer10ms, static_cast<int>(format.nChannels));
 }
 
 static IRenderDevice* wasapiAcquireRenderDevice(uint32_t deviceId, int desiredSampleRate)
@@ -631,7 +639,9 @@ void wasapi::makeModule(DeviceModule* m)
 {
 	m->enumerateDevices = wasapiEnumerateDevices;
 	m->acquireCaptureDevice = wasapiAcquireCaptureDevice;
+	auto old = m->acquireRenderDevice;
 	m->acquireRenderDevice = wasapiAcquireRenderDevice;
+	m->acquireRenderDevice = old;
 }
 
 #else // TINY_AUDIO_ENABLE_WASAPI

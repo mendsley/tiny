@@ -113,7 +113,7 @@ namespace tiny
 
 		// disconnect from a peer. does not signal the peer, simply
 		// stops processing incoming packets
-		void meshDisconnectPeer(Mesh* m, uint32_t peer, uint64_t id);
+		void meshDisconnectPeer(Mesh* m, uint32_t peer);
 
 		// get the connection status of a peer
 		PeerState::E meshPeerState(Mesh* m, uint32_t peer);

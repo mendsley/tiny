@@ -48,11 +48,10 @@ int main()
 		return -1;
 
 	typedef resample::Linear Resampler;
-	Resampler resampler(mic->sampleRate(), speaker->sampleRate());
-	const int nmicsamples = mic->samplesPer16ms();
+	Resampler inputResampler(mic->sampleRate(), 48000);
+	Resampler outputResampler(48000, speaker->sampleRate());
 
-	const float* micSamples = nullptr;
-	int remainingMicSamples = 0;
+	std::vector<float> micSamples;
 
 	if (!speaker->start() || !mic->start())
 	{
@@ -72,39 +71,46 @@ int main()
 		while (samplesOut)
 		{
 			// acquire mic samples if we're out
-			if (remainingMicSamples == 0)
+			if (micSamples.empty())
 			{
-				micSamples = mic->get16msOfSamples();
-				if (micSamples)
+				const float* micSamplesRaw = mic->get10msOfSamples();
+				if (micSamplesRaw)
 				{
-					remainingMicSamples = nmicsamples;
+					micSamples.resize(inputResampler.outputSamples(mic->samplesPer10ms()));
+					if (mic->channels() == 2)
+					{
+						inputResampler.resampleStereoToMono(micSamplesRaw, mic->samplesPer10ms(), micSamples.data(), static_cast<int>(micSamples.size()));
+					}
+					else
+					{
+						inputResampler.resampleMono(micSamplesRaw, mic->samplesPer10ms(), micSamples.data(), static_cast<int>(micSamples.size()));
+					}
 				}
 			}
 
-			if (remainingMicSamples)
+			if (!micSamples.empty())
 			{
 				// write as many samples as possible
 				int samplesToWrite = samplesOut;
-				int samplesToRead = resampler.inputSamples(samplesToWrite);
-				if (samplesToRead > remainingMicSamples)
+				int samplesToRead = outputResampler.inputSamples(samplesToWrite);
+				if (samplesToRead > static_cast<int>(micSamples.size()))
 				{
-					samplesToRead = remainingMicSamples;
-					samplesToWrite = resampler.outputSamples(samplesToRead);
+					samplesToRead = static_cast<int>(micSamples.size());
+					samplesToWrite = outputResampler.outputSamples(samplesToRead);
 				}
 
 				if (mic->channels() == 1)
 				{
 					std::vector<float> buffer(samplesToWrite);
-					resampler.resampleMonoToStereo(micSamples, samplesToRead, outBuffer, samplesToWrite);
+					outputResampler.resampleMonoToStereo(micSamples.data(), samplesToRead, outBuffer, samplesToWrite);
 				}
 				else
 				{
-					resampler.resampleStereo(micSamples, samplesToRead, outBuffer, samplesToWrite);
+					outputResampler.resampleStereo(micSamples.data(), samplesToRead, outBuffer, samplesToWrite);
 				}
 
 				// adjust buffers
-				micSamples += samplesToRead;
-				remainingMicSamples -= samplesToRead;
+				micSamples.erase(micSamples.begin(), micSamples.begin() + samplesToRead);
 				outBuffer += 2*samplesToWrite;
 				samplesOut -= samplesToWrite;
 			}

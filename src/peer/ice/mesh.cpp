@@ -827,7 +827,7 @@ uint32_t peer::meshConnectToPeer(Mesh* m, uint64_t remoteId, const uint8_t* remo
 	return p->sequence;
 }
 
-void peer::meshDisconnectPeer(Mesh* m, uint32_t peerId, uint64_t id)
+void peer::meshDisconnectPeer(Mesh* m, uint32_t peerId)
 {
 	const uint8_t index = static_cast<uint8_t>(peerId & 0xFF);
 	if (!m || index >= m->peers.size())

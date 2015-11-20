@@ -203,7 +203,7 @@ bool peer::stunProcessBindingRequest(StunBindingRequest* req, const uint8_t* pac
 	uint16_t messageLength;
 	memcpy(&messageLength, &packet[2], sizeof(messageLength));
 	messageLength = endianFromBig(messageLength);
-	if (npacket != 20+messageLength)
+	if (npacket != 20u+messageLength)
 		return false;
 
 	req->incomingUsername = 0;
@@ -328,7 +328,7 @@ bool peer::stunProcessBindingResult(Address* address, uint16_t* bePort, const ui
 	uint16_t messageLength;
 	memcpy(&messageLength, &packet[2], sizeof(messageLength));
 	messageLength = endianFromBig(messageLength);
-	if (npacket != 20+messageLength)
+	if (npacket != 20u+messageLength)
 		return false;
 
 	// process attributes
@@ -401,7 +401,7 @@ bool peer::stunProcessBindingResult(StunBindingResult* res, const uint8_t* packe
 	uint16_t messageLength;
 	memcpy(&messageLength, &packet[2], sizeof(messageLength));
 	messageLength = endianFromBig(messageLength);
-	if (npacket != 20+messageLength)
+	if (npacket != 20u+messageLength)
 		return false;
 
 	memset(&res->address, 0, sizeof(res->address));
