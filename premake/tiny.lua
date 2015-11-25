@@ -16,6 +16,19 @@ project "tiny"
 		ROOT_DIR .. "src/",
 
 		THIRD_PARTY_DIR .. "opus/include/",
+		THIRD_PARTY_DIR .. "webrtc/",
 
 		"$(DXSDK_DIR)/include",
 	}
+
+	configuration "windows"
+		defines {
+			"WEBRTC_WIN",
+		}
+
+	configuration "vs*"
+		buildoptions {
+			"/wd4100", -- warning C4100: 'T' : unreferenced formal parameter
+		}
+
+	configuration {}

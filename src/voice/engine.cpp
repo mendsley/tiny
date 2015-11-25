@@ -28,6 +28,7 @@
 #include <string.h>
 #include <vector>
 #include <opus.h>
+#include <webrtc/modules/audio_processing/include/audio_processing.h>
 #include "tiny/audio/capture.h"
 #include "tiny/audio/resample.h"
 #include "tiny/endian.h"
