@@ -28,6 +28,7 @@ solution "tiny_sln"
 	configuration {}
 
 	dofile "premake/tiny.lua"
+	dofile "premake/tiny_3rdparty.lua"
 
 function example_project(name)
 	project ("example_" .. name)
@@ -43,6 +44,8 @@ function example_project(name)
 		links {
 			"tiny",
 		}
+
+		dofile "premake/tinylink.lua"
 
 		configuration "windows"
 			links {

@@ -27,7 +27,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <vector>
-#include "voice/opus/include/opus.h"
+#include <opus.h>
 #include "tiny/audio/capture.h"
 #include "tiny/audio/resample.h"
 #include "tiny/endian.h"
