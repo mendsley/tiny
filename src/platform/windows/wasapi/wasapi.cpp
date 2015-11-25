@@ -130,6 +130,11 @@ namespace
 				return nullptr;
 			}
 
+			if (currentSize + static_cast<int>(framesAvailable) > deviceSamplesPer10ms)
+			{
+				framesAvailable = deviceSamplesPer10ms - currentSize;
+			}
+
 			const float* floatData = reinterpret_cast<const float*>(data);
 			buffer.insert(buffer.end(), floatData, floatData+framesAvailable*deviceChannels);
 			captureClient->ReleaseBuffer(framesAvailable);
@@ -194,6 +199,7 @@ namespace
 			bufferIndex = 0;
 			frameReadySem = CreateSemaphore(nullptr, c_npackets, c_npackets, nullptr);
 			frameCompleteSem = CreateSemaphore(nullptr, 0, c_npackets, nullptr);
+			threadShutdown = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 			thread = CreateThread(nullptr, 0, threadEntry, this, 0, nullptr);
 			return thread != nullptr;
 		}
@@ -639,9 +645,7 @@ void wasapi::makeModule(DeviceModule* m)
 {
 	m->enumerateDevices = wasapiEnumerateDevices;
 	m->acquireCaptureDevice = wasapiAcquireCaptureDevice;
-	auto old = m->acquireRenderDevice;
 	m->acquireRenderDevice = wasapiAcquireRenderDevice;
-	m->acquireRenderDevice = old;
 }
 
 #else // TINY_AUDIO_ENABLE_WASAPI

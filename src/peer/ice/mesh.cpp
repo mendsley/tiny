@@ -649,7 +649,7 @@ static void processPeerStunRequest(Mesh* m, peerconn* p, const peerBindingReques
 	{
 		// if the pair is not on the check list, insert it and start a new check
 		ConnectivityCheck newCheck;
-		initializeConnectivityCheck(check, m, p, request.localCandidate, remoteIndex);
+		initializeConnectivityCheck(&newCheck, m, p, request.localCandidate, remoteIndex);
 		std::vector<ConnectivityCheck>::iterator it = std::lower_bound(p->connectivityChecks.begin(), p->connectivityChecks.end(), newCheck, SortByPriority()); 
 		check = &(*p->connectivityChecks.insert(it, newCheck));
 

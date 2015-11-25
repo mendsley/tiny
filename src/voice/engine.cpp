@@ -53,12 +53,14 @@ struct voice::Engine
 
 	ICaptureDevice* mic;
 	OpusEncoder* encoder;
+	webrtc::AudioProcessing* outgoingProcessor;
 	uint32_t samplesPer10ms;
 	uint32_t outputSampleRate;
 	uint32_t outgoingSequence;
 	int channels;
-	resample::Linear micResampler;
+	int micSampleRate;
 	float monoBuffer[c_nmonoBuffer];
+	float processedMonoBuffer[c_nmonoBuffer];
 };
 
 Engine* voice::engineCreate(ICaptureDevice* microphone, uint32_t sampleRate)
@@ -73,19 +75,37 @@ Engine* voice::engineCreate(ICaptureDevice* microphone, uint32_t sampleRate)
 		return nullptr;
 	}
 
+	webrtc::AudioProcessing* processor = webrtc::AudioProcessing::Create();
+	
+	processor->high_pass_filter()->Enable(true);
+	
+	processor->echo_cancellation()->enable_drift_compensation(false);
+	processor->echo_cancellation()->Enable(false /*true*/);
+
+	processor->noise_suppression()->set_level(webrtc::NoiseSuppression::kHigh);
+	processor->noise_suppression()->Enable(true);
+
+	processor->gain_control()->set_analog_level_limits(0, 255);
+	processor->gain_control()->set_mode(webrtc::GainControl::kAdaptiveAnalog);
+	processor->gain_control()->Enable(true);
+
+	processor->voice_detection()->Enable(true);
+
 	Engine* e = new Engine;
 	e->samplesPer10ms = microphone->samplesPer10ms();
 	e->encoder = encoder;
 	e->channels = microphone->channels();
+	e->micSampleRate = microphone->sampleRate();
 	e->mic = microphone;
-	e->micResampler.reset(e->mic->sampleRate(), 48000);
 	e->outputSampleRate = sampleRate;
 	e->outgoingSequence = 0;
+	e->outgoingProcessor = processor;
 	return e;
 }
 
 void voice::engineRelease(Engine* e)
 {
+	delete e->outgoingProcessor;
 	opus_encoder_destroy(e->encoder);
 	delete e;
 }
@@ -131,31 +151,32 @@ uint32_t voice::engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacke
 		if (!incoming)
 			break;
 
-		if (e->channels == 2)
+		// process the audio
+		float* out[1] = {e->monoBuffer};
+		if (webrtc::AudioProcessing::kNoError == e->outgoingProcessor->ProcessStream(&incoming, webrtc::StreamConfig(e->micSampleRate, e->channels, false), webrtc::StreamConfig(48000, 1, false), out))
 		{
-			e->micResampler.resampleStereoToMono(incoming, e->samplesPer10ms, e->monoBuffer, Engine::c_nmonoBuffer);
+			if (e->outgoingProcessor->voice_detection()->stream_has_voice())
+			{
+				// encode the audio
+				int32_t packetData = opus_encode_float(e->encoder, e->monoBuffer, Engine::c_nmonoBuffer, packet+2, npacket-2);
+				if (packetData < 1) // no need to transmit this data
+				{
+					break;
+				}
+
+				uint16_t encodedPacketData = endianToLittle(static_cast<uint16_t>(packetData));
+				memcpy(packet, &encodedPacketData, sizeof(encodedPacketData));
+
+				packet += sizeof(encodedPacketData);
+				npacket -= sizeof(encodedPacketData);
+				packetWritten += sizeof(encodedPacketData);
+
+				npacket -= packetData;
+				packet += packetData;
+				packetWritten += packetData;
+				++packetsGenerated;
+			}
 		}
-		else
-		{
-			e->micResampler.resampleMono(incoming, e->samplesPer10ms, e->monoBuffer, Engine::c_nmonoBuffer);
-		}
-
-		int32_t packetData = opus_encode_float(e->encoder, e->monoBuffer, Engine::c_nmonoBuffer, packet+2, npacket-2);
-		if (packetData < 1) // no need to transmit this data
-		{
-			break;
-		}
-
-		uint16_t encodedPacketData = endianToLittle(static_cast<uint16_t>(packetData));
-		memcpy(packet, &encodedPacketData, sizeof(encodedPacketData));
-
-		packet += sizeof(encodedPacketData);
-		npacket -= sizeof(encodedPacketData);
-		packetWritten += sizeof(encodedPacketData);
-
-		npacket -= packetData;
-		packet += packetData;
-		packetWritten += packetData;
 	}
 
 	e->outgoingSequence += packetsGenerated;
@@ -229,6 +250,8 @@ void voice::engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uin
 		packet += audioPacketSize;
 		npacket -= audioPacketSize;
 	}
+
+	s->incomingSequence = incomingSequence;
 }
 
 uint32_t voice::engineGetSourceAudio(Engine* /*e*/, Source* s, const float** monoSamples)
