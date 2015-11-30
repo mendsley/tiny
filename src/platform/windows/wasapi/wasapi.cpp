@@ -253,6 +253,19 @@ namespace
 
 		void threadProc()
 		{
+			// render a single frame of silence to begin
+			BYTE* data;
+			HRESULT hr = renderClient->GetBuffer(bufferSize, &data);
+			if (SUCCEEDED(hr))
+			{
+				hr = renderClient->ReleaseBuffer(bufferSize, AUDCLNT_BUFFERFLAGS_SILENT);
+			}
+			if (FAILED(hr))
+			{
+				client->Stop();
+				return;
+			}
+
 			HANDLE wait[2] = {frameCompleteSem, threadShutdown};
 			int packetIndex = 0;
 			for(;;)
@@ -271,7 +284,7 @@ namespace
 				while (remainingSamples)
 				{
 					UINT currentPadding;
-					HRESULT hr = client->GetCurrentPadding(&currentPadding);
+					hr = client->GetCurrentPadding(&currentPadding);
 					if (FAILED(hr))
 					{
 						client->Stop();
@@ -291,7 +304,6 @@ namespace
 						bufferAvailable = remainingSamples;
 					}
 
-					BYTE* data;
 					if (FAILED(renderClient->GetBuffer(bufferAvailable, &data)))
 					{
 						client->Stop();
