@@ -33,18 +33,11 @@
 #include "tiny/audio/resample.h"
 #include "tiny/endian.h"
 #include "tiny/voice/engine.h"
+#include "tiny/voice/source.h"
 
 using namespace tiny;
 using namespace tiny::audio;
 using namespace tiny::voice;
-
-struct voice::Source
-{
-	std::vector<float> incomingData;
-	resample::Linear outputResampler;
-	OpusDecoder* decoder;
-	uint32_t incomingSequence;
-};
 
 struct voice::Engine
 {
@@ -124,30 +117,13 @@ void voice::engineRelease(Engine* e)
 	delete e;
 }
 
-Source* voice::engineAddSource(Engine* e)
+void voice::engineAddSource(Engine* e, Source* s)
 {
-	Source* s = new Source;
-	s->decoder = nullptr;
-	s->incomingSequence = 0;
-
-	int error;
-	OpusDecoder* decoder = opus_decoder_create(48000, 1, &error);
-	if (decoder)
-	{
-		s->outputResampler.reset(48000, e->outputSampleRate);
-		s->decoder = decoder;
-	}
-
-	return s;
+	s->reset(e->outputSampleRate);
 }
 
-void voice::engineRemoveSource(Engine* /*e*/, Source* s)
+void voice::engineRemoveSource(Engine* /*e*/, Source* /*s*/)
 {
-	if (s->decoder)
-	{
-		opus_decoder_destroy(s->decoder);
-	}
-	delete s;
 }
 
 uint32_t voice::engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacket)
@@ -229,11 +205,11 @@ void voice::engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uin
 	}
 
 	// notify opus of missing audio packets
-	if (s->decoder)
+	if (s->decoder.p)
 	{
 		for (uint32_t ii = s->incomingSequence; ii < incomingSequence; ++ii)
 		{
-			const int nsamples = opus_decode_float(s->decoder, nullptr, 0, e->monoBuffer, Engine::c_nmonoBuffer, 0);
+			const int nsamples = opus_decode_float(s->decoder.p, nullptr, 0, e->monoBuffer, Engine::c_nmonoBuffer, 0);
 			if (nsamples > 0)
 			{
 				const uint32_t outputSamples = s->outputResampler.outputSamples(nsamples);
@@ -258,9 +234,9 @@ void voice::engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uin
 		packet += sizeof(audioPacketSize);
 		npacket -= sizeof(audioPacketSize);
 
-		if (s->decoder && incomingSequence >= s->incomingSequence)
+		if (s->decoder.p && incomingSequence >= s->incomingSequence)
 		{
-			const int nsamples = opus_decode_float(s->decoder, packet, audioPacketSize, e->monoBuffer, Engine::c_nmonoBuffer, 0);
+			const int nsamples = opus_decode_float(s->decoder.p, packet, audioPacketSize, e->monoBuffer, Engine::c_nmonoBuffer, 0);
 			if (nsamples > 0)
 			{
 				const uint32_t outputSamples = s->outputResampler.outputSamples(nsamples);

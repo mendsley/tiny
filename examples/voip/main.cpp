@@ -28,6 +28,7 @@
 #include <tiny/audio/capture.h>
 #include <tiny/audio/render.h>
 #include <tiny/voice/engine.h>
+#include <tiny/voice/source.h>
 
 #include <stdio.h>
 #include <time.h>
@@ -57,11 +58,8 @@ int main()
 		return -1;
 	}
 
-	voice::Source* vsource = voice::engineAddSource(engine);
-	if (!vsource)
-	{
-		return -1;
-	}
+	voice::Source vsource;
+	voice::engineAddSource(engine, &vsource);
 
 	uint8_t packet[4000];
 	const time_t end = time(nullptr)+10;
@@ -72,7 +70,7 @@ int main()
 			uint32_t npacket = voice::engineGeneratePacket(engine, packet, sizeof(packet));
 			if (npacket)
 			{
-				voice::engineProcessPacket(engine, vsource, packet, npacket);
+				voice::engineProcessPacket(engine, &vsource, packet, npacket);
 			}
 			else
 			{
@@ -84,7 +82,7 @@ int main()
 		const uint32_t nsamples = speaker->acquireBuffer(&buffer);
 
 		const float* samples;
-		uint32_t samplesAvailable = voice::engineGetSourceAudio(engine, vsource, &samples);
+		uint32_t samplesAvailable = voice::engineGetSourceAudio(engine, &vsource, &samples);
 		if (samplesAvailable > nsamples)
 		{
 			samplesAvailable = nsamples;
@@ -102,12 +100,12 @@ int main()
 			}
 			buffer[2*ii+1] = buffer[2*ii];
 		}
-		voice::engineConsumeSourceAudio(engine, vsource, samplesAvailable);
+		voice::engineConsumeSourceAudio(engine, &vsource, samplesAvailable);
 
 		speaker->commitBuffer();
 	}
 
-	voice::engineRemoveSource(engine, vsource);
+	voice::engineRemoveSource(engine, &vsource);
 	voice::engineRelease(engine);
 	speaker->release();
 	mic->release();

@@ -36,12 +36,12 @@ namespace tiny
 	namespace voice
 	{
 		struct Engine;
-		struct Source;
+		class Source;
 
 		Engine* engineCreate(audio::ICaptureDevice* microphone, uint32_t sampleRate = 48000);
 		void engineRelease(Engine* e);
 
-		Source* engineAddSource(Engine* e);
+		void engineAddSource(Engine* e, Source* s);
 		void engineRemoveSource(Engine* e, Source* s);
 
 		uint32_t engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacket);
