@@ -65,75 +65,96 @@ struct voice::Engine
 
 Engine* voice::engineCreate(ICaptureDevice* microphone, uint32_t sampleRate)
 {
-	if (!microphone)
-		return nullptr;
+	Engine* e = new Engine;
+	e->samplesPer10ms = 0;
+	e->encoder = nullptr;
+	e->channels = 0;
+	e->micSampleRate = 0;
+	e->mic = nullptr;
+	e->outputSampleRate = 0;
+	e->outgoingProcessor = nullptr;
 
-	int error;
-	OpusEncoder* encoder = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &error);
-	if (!encoder)
+	if (microphone)
 	{
-		return nullptr;
+		int error;
+		OpusEncoder* encoder = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &error);
+		if (encoder)
+		{
+			webrtc::AudioProcessing* processor = webrtc::AudioProcessing::Create();
+	
+			processor->high_pass_filter()->Enable(true);
+	
+			processor->echo_cancellation()->enable_drift_compensation(false);
+			processor->echo_cancellation()->Enable(false /*true*/);
+
+			processor->noise_suppression()->set_level(webrtc::NoiseSuppression::kHigh);
+			processor->noise_suppression()->Enable(true);
+
+			processor->gain_control()->set_analog_level_limits(0, 255);
+			processor->gain_control()->set_mode(webrtc::GainControl::kAdaptiveAnalog);
+			processor->gain_control()->Enable(true);
+
+			processor->voice_detection()->Enable(true);
+
+		
+			e->samplesPer10ms = microphone->samplesPer10ms();
+			e->encoder = encoder;
+			e->channels = microphone->channels();
+			e->micSampleRate = microphone->sampleRate();
+			e->mic = microphone;
+			e->outputSampleRate = sampleRate;
+			e->outgoingSequence = 0;
+			e->outgoingProcessor = processor;
+		}
 	}
 
-	webrtc::AudioProcessing* processor = webrtc::AudioProcessing::Create();
-	
-	processor->high_pass_filter()->Enable(true);
-	
-	processor->echo_cancellation()->enable_drift_compensation(false);
-	processor->echo_cancellation()->Enable(false /*true*/);
-
-	processor->noise_suppression()->set_level(webrtc::NoiseSuppression::kHigh);
-	processor->noise_suppression()->Enable(true);
-
-	processor->gain_control()->set_analog_level_limits(0, 255);
-	processor->gain_control()->set_mode(webrtc::GainControl::kAdaptiveAnalog);
-	processor->gain_control()->Enable(true);
-
-	processor->voice_detection()->Enable(true);
-
-	Engine* e = new Engine;
-	e->samplesPer10ms = microphone->samplesPer10ms();
-	e->encoder = encoder;
-	e->channels = microphone->channels();
-	e->micSampleRate = microphone->sampleRate();
-	e->mic = microphone;
-	e->outputSampleRate = sampleRate;
-	e->outgoingSequence = 0;
-	e->outgoingProcessor = processor;
 	return e;
 }
 
 void voice::engineRelease(Engine* e)
 {
-	delete e->outgoingProcessor;
-	opus_encoder_destroy(e->encoder);
+	if (e->outgoingProcessor)
+	{
+		delete e->outgoingProcessor;
+	}
+	if (e->encoder)
+	{
+		opus_encoder_destroy(e->encoder);
+	}
 	delete e;
 }
 
 Source* voice::engineAddSource(Engine* e)
 {
+	Source* s = new Source;
+	s->decoder = nullptr;
+	s->incomingSequence = 0;
+
 	int error;
 	OpusDecoder* decoder = opus_decoder_create(48000, 1, &error);
-	if (!decoder)
+	if (decoder)
 	{
-		return nullptr;
+		s->outputResampler.reset(48000, e->outputSampleRate);
+		s->decoder = decoder;
 	}
 
-	Source* s = new Source;
-	s->outputResampler.reset(48000, e->outputSampleRate);
-	s->decoder = decoder;
-	s->incomingSequence = 0;
 	return s;
 }
 
 void voice::engineRemoveSource(Engine* /*e*/, Source* s)
 {
-	opus_decoder_destroy(s->decoder);
+	if (s->decoder)
+	{
+		opus_decoder_destroy(s->decoder);
+	}
 	delete s;
 }
 
 uint32_t voice::engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacket)
 {
+	if (!e->mic || !e->outgoingProcessor || !e->encoder)
+		return 0;
+
 	if (npacket < 4)
 		return 0;
 
@@ -208,15 +229,18 @@ void voice::engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uin
 	}
 
 	// notify opus of missing audio packets
-	for (uint32_t ii = s->incomingSequence; ii < incomingSequence; ++ii)
+	if (s->decoder)
 	{
-		const int nsamples = opus_decode_float(s->decoder, nullptr, 0, e->monoBuffer, Engine::c_nmonoBuffer, 0);
-		if (nsamples > 0)
+		for (uint32_t ii = s->incomingSequence; ii < incomingSequence; ++ii)
 		{
-			const uint32_t outputSamples = s->outputResampler.outputSamples(nsamples);
-			const size_t existingSize = s->incomingData.size();
-			s->incomingData.reserve(existingSize + outputSamples);
-			s->outputResampler.resampleMono(e->monoBuffer, nsamples, s->incomingData.data() + existingSize, outputSamples);
+			const int nsamples = opus_decode_float(s->decoder, nullptr, 0, e->monoBuffer, Engine::c_nmonoBuffer, 0);
+			if (nsamples > 0)
+			{
+				const uint32_t outputSamples = s->outputResampler.outputSamples(nsamples);
+				const size_t existingSize = s->incomingData.size();
+				s->incomingData.reserve(existingSize + outputSamples);
+				s->outputResampler.resampleMono(e->monoBuffer, nsamples, s->incomingData.data() + existingSize, outputSamples);
+			}
 		}
 	}
 
@@ -234,7 +258,7 @@ void voice::engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uin
 		packet += sizeof(audioPacketSize);
 		npacket -= sizeof(audioPacketSize);
 
-		if (incomingSequence >= s->incomingSequence)
+		if (s->decoder && incomingSequence >= s->incomingSequence)
 		{
 			const int nsamples = opus_decode_float(s->decoder, packet, audioPacketSize, e->monoBuffer, Engine::c_nmonoBuffer, 0);
 			if (nsamples > 0)
