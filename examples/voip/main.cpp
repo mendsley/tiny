@@ -45,7 +45,7 @@ int main()
 	if (!mic)
 		return -1;
 
-	IRenderDevice* speaker = acquireDefaultRenderDevice(44100);
+	IRenderDevice* speaker = acquireDefaultRenderDevice(48000);
 	if (!speaker)
 		return -1;
 
