@@ -89,3 +89,12 @@ void Source::reset(uint32_t sampleRate)
 	decoder.reset();
 	outputResampler.reset(48000, sampleRate);
 }
+
+void Source::swap(Source& other)
+{
+	incomingData.swap(other.incomingData);
+	outputResampler = other.outputResampler;
+	incomingSequence = other.incomingSequence;
+	decoder = std::move(other.decoder);
+	other.decoder.p = nullptr;
+}

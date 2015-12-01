@@ -64,6 +64,8 @@ namespace tiny
 			bool valid();
 			void reset(uint32_t sampleRate);
 
+			void swap(Source& other);
+
 			std::vector<float> incomingData;
 			audio::resample::Linear outputResampler;
 			uint32_t incomingSequence;
