@@ -104,6 +104,12 @@ namespace
 			{
 				buffer.erase(buffer.begin(), buffer.begin() + deviceChannels*deviceSamplesPer10ms);
 				currentSize -= deviceSamplesPer10ms;
+
+				// if we still have enough samples, return those
+				if (currentSize >= deviceSamplesPer10ms)
+				{
+					return buffer.data();
+				}
 			}
 
 			// do we have any pending data
@@ -130,22 +136,21 @@ namespace
 				return nullptr;
 			}
 
-			if (currentSize + static_cast<int>(framesAvailable) > deviceSamplesPer10ms)
-			{
-				framesAvailable = deviceSamplesPer10ms - currentSize;
-			}
-
 			const float* floatData = reinterpret_cast<const float*>(data);
 			buffer.insert(buffer.end(), floatData, floatData+framesAvailable*deviceChannels);
-			captureClient->ReleaseBuffer(framesAvailable);
-
-			// enough data to return to caller?
-			if (currentSize + static_cast<int>(framesAvailable) >= deviceSamplesPer10ms)
+			hr = captureClient->ReleaseBuffer(framesAvailable);
+			if (FAILED(hr))
 			{
-				return buffer.data();
+				return nullptr;
 			}
 
-			return nullptr;
+			// enough data to return to caller?
+			if (currentSize + static_cast<int>(framesAvailable) < deviceSamplesPer10ms)
+			{
+				return nullptr;
+			}
+
+			return buffer.data();
 		}
 
 	private:
