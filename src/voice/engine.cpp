@@ -25,6 +25,7 @@
  */
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <vector>
 #include <opus.h>
@@ -51,9 +52,14 @@ Engine::Engine(ICaptureDevice* mic, uint32_t sampleRate)
 {
 	if (mic)
 	{
-		int error;
-		OpusEncoder* encoder = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &error);
-		if (encoder)
+		int requiredSpce = opus_encoder_get_size(1);
+		if (requiredSpce > sizeof(encoderSpace))
+		{
+			abort();
+		}
+
+		OpusEncoder* encoder = reinterpret_cast<OpusEncoder*>(&encoderSpace);
+		if (OPUS_OK == opus_encoder_init(encoder, 48000, 1, OPUS_APPLICATION_VOIP))
 		{
 			webrtc::AudioProcessing* processor = webrtc::AudioProcessing::Create();
 	
@@ -177,7 +183,7 @@ void Engine::processPacket(Source* s, const uint8_t* packet, uint32_t npacket)
 	}
 
 	// notify opus of missing audio packets
-	if (s->decoder.p)
+	if (s->valid())
 	{
 		for (uint32_t ii = s->incomingSequence; ii < incomingSequence; ++ii)
 		{
@@ -206,7 +212,7 @@ void Engine::processPacket(Source* s, const uint8_t* packet, uint32_t npacket)
 		packet += sizeof(audioPacketSize);
 		npacket -= sizeof(audioPacketSize);
 
-		if (s->decoder.p && incomingSequence >= s->incomingSequence)
+		if (s->valid() && incomingSequence >= s->incomingSequence)
 		{
 			const int nsamples = opus_decode_float(s->decoder.p, packet, audioPacketSize, monoBuffer, c_monoSamples, 0);
 			if (nsamples > 0)

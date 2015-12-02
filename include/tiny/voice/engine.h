@@ -69,6 +69,12 @@ namespace tiny
 			const int channels;
 			const int micSampleRate;
 			float monoBuffer[c_monoSamples];
+
+			union
+			{
+				uint8_t block[47888];
+				void* align;
+			} encoderSpace;
 		};
 	}
 }
