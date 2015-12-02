@@ -49,17 +49,15 @@ int main()
 	if (!speaker)
 		return -1;
 
-	voice::Engine* engine = voice::engineCreate(mic, speaker->sampleRate());
-	if (!engine)
-		return -1;
-
+	voice::Engine engine(mic, speaker->sampleRate());
+	
 	if (!speaker->start() || !mic->start())
 	{
 		return -1;
 	}
 
 	voice::Source vsource;
-	voice::engineAddSource(engine, &vsource);
+	engine.addSource(&vsource);
 
 	uint8_t packet[4000];
 	const time_t end = time(nullptr)+10;
@@ -67,10 +65,10 @@ int main()
 	{
 		for (;;)
 		{
-			uint32_t npacket = voice::engineGeneratePacket(engine, packet, sizeof(packet));
+			uint32_t npacket = engine.generatePacket(packet, sizeof(packet));
 			if (npacket)
 			{
-				voice::engineProcessPacket(engine, &vsource, packet, npacket);
+				engine.processPacket(&vsource, packet, npacket);
 			}
 			else
 			{
@@ -82,7 +80,7 @@ int main()
 		const uint32_t nsamples = speaker->acquireBuffer(&buffer);
 
 		const float* samples;
-		uint32_t samplesAvailable = voice::engineGetSourceAudio(engine, &vsource, &samples);
+		uint32_t samplesAvailable = vsource.getSourceAudio(&samples);
 		if (samplesAvailable > nsamples)
 		{
 			samplesAvailable = nsamples;
@@ -100,13 +98,12 @@ int main()
 			}
 			buffer[2*ii+1] = buffer[2*ii];
 		}
-		voice::engineConsumeSourceAudio(engine, &vsource, samplesAvailable);
+		vsource.consumeSourceAudio(samplesAvailable);
 
 		speaker->commitBuffer();
 	}
 
-	voice::engineRemoveSource(engine, &vsource);
-	voice::engineRelease(engine);
+	engine.removeSource(&vsource);
 	speaker->release();
 	mic->release();
 }

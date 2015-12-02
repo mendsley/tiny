@@ -39,35 +39,17 @@ using namespace tiny;
 using namespace tiny::audio;
 using namespace tiny::voice;
 
-struct voice::Engine
+Engine::Engine(ICaptureDevice* mic, uint32_t sampleRate)
+	: mic(mic)
+	, encoder(nullptr)
+	, outgoingProcessor(nullptr)
+	, samplesPer10ms(mic ? mic->samplesPer10ms() : 0)
+	, outputSampleRate(sampleRate)
+	, outgoingSequence(0)
+	, channels(mic ? mic->channels() : 0)
+	, micSampleRate(mic ? mic->sampleRate() : 0)
 {
-	// number of samples @48k * 10ms
-	static const uint32_t c_nmonoBuffer = 480;
-
-	ICaptureDevice* mic;
-	OpusEncoder* encoder;
-	webrtc::AudioProcessing* outgoingProcessor;
-	uint32_t samplesPer10ms;
-	uint32_t outputSampleRate;
-	uint32_t outgoingSequence;
-	int channels;
-	int micSampleRate;
-	float monoBuffer[c_nmonoBuffer];
-	float processedMonoBuffer[c_nmonoBuffer];
-};
-
-Engine* voice::engineCreate(ICaptureDevice* microphone, uint32_t sampleRate)
-{
-	Engine* e = new Engine;
-	e->samplesPer10ms = 0;
-	e->encoder = nullptr;
-	e->channels = 0;
-	e->micSampleRate = 0;
-	e->mic = nullptr;
-	e->outputSampleRate = 0;
-	e->outgoingProcessor = nullptr;
-
-	if (microphone)
+	if (mic)
 	{
 		int error;
 		OpusEncoder* encoder = opus_encoder_create(48000, 1, OPUS_APPLICATION_VOIP, &error);
@@ -89,52 +71,42 @@ Engine* voice::engineCreate(ICaptureDevice* microphone, uint32_t sampleRate)
 
 			processor->voice_detection()->Enable(true);
 
-		
-			e->samplesPer10ms = microphone->samplesPer10ms();
-			e->encoder = encoder;
-			e->channels = microphone->channels();
-			e->micSampleRate = microphone->sampleRate();
-			e->mic = microphone;
-			e->outputSampleRate = sampleRate;
-			e->outgoingSequence = 0;
-			e->outgoingProcessor = processor;
+			this->encoder = encoder;
+			this->outgoingProcessor = processor;
 		}
 	}
-
-	return e;
 }
 
-void voice::engineRelease(Engine* e)
+Engine::~Engine()
 {
-	if (e->outgoingProcessor)
+	if (outgoingProcessor)
 	{
-		delete e->outgoingProcessor;
+		delete outgoingProcessor;
 	}
-	if (e->encoder)
+	if (encoder)
 	{
-		opus_encoder_destroy(e->encoder);
+		opus_encoder_destroy(encoder);
 	}
-	delete e;
 }
 
-void voice::engineAddSource(Engine* e, Source* s)
+void Engine::addSource(Source* s)
 {
-	s->reset(e->outputSampleRate);
+	s->reset(outputSampleRate);
 }
 
-void voice::engineRemoveSource(Engine* /*e*/, Source* /*s*/)
+void Engine::removeSource(Source* /*s*/)
 {
 }
 
-uint32_t voice::engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacket)
+uint32_t Engine::generatePacket(uint8_t* packet, uint32_t npacket)
 {
-	if (!e->mic || !e->outgoingProcessor || !e->encoder)
+	if (!mic || !outgoingProcessor || !encoder)
 		return 0;
 
 	if (npacket < 4)
 		return 0;
 
-	uint32_t sequence = endianToLittle(e->outgoingSequence);
+	uint32_t sequence = endianToLittle(outgoingSequence);
 	memcpy(packet, &sequence, sizeof(sequence));
 	packet += sizeof(sequence);
 	npacket -= sizeof(sequence);
@@ -144,18 +116,18 @@ uint32_t voice::engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacke
 	while (npacket > 200)
 	{
 		// do we have 10ms of data to encode?
-		const float* incoming = e->mic->get10msOfSamples();
+		const float* incoming = mic->get10msOfSamples();
 		if (!incoming)
 			break;
 
 		// process the audio
-		float* out[1] = {e->monoBuffer};
-		if (webrtc::AudioProcessing::kNoError == e->outgoingProcessor->ProcessStream(&incoming, webrtc::StreamConfig(e->micSampleRate, e->channels, false), webrtc::StreamConfig(48000, 1, false), out))
+		float* out[1] = {monoBuffer};
+		if (webrtc::AudioProcessing::kNoError == outgoingProcessor->ProcessStream(&incoming, webrtc::StreamConfig(micSampleRate, channels, false), webrtc::StreamConfig(48000, 1, false), out))
 		{
-			if (e->outgoingProcessor->voice_detection()->stream_has_voice())
+			if (outgoingProcessor->voice_detection()->stream_has_voice())
 			{
 				// encode the audio
-				int32_t packetData = opus_encode_float(e->encoder, e->monoBuffer, Engine::c_nmonoBuffer, packet+2, npacket-2);
+				int32_t packetData = opus_encode_float(encoder, monoBuffer, c_monoSamples, packet+2, npacket-2);
 				if (packetData < 1) // no need to transmit this data
 				{
 					break;
@@ -176,7 +148,7 @@ uint32_t voice::engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacke
 		}
 	}
 
-	e->outgoingSequence += packetsGenerated;
+	outgoingSequence += packetsGenerated;
 
 	// did we actually write any audio data?
 	if (packetWritten == sizeof(uint32_t))
@@ -187,7 +159,7 @@ uint32_t voice::engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacke
 	return packetWritten;
 }
 
-void voice::engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uint32_t npacket)
+void Engine::processPacket(Source* s, const uint8_t* packet, uint32_t npacket)
 {
 	if (npacket < 6)
 		return;
@@ -209,13 +181,13 @@ void voice::engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uin
 	{
 		for (uint32_t ii = s->incomingSequence; ii < incomingSequence; ++ii)
 		{
-			const int nsamples = opus_decode_float(s->decoder.p, nullptr, 0, e->monoBuffer, Engine::c_nmonoBuffer, 0);
+			const int nsamples = opus_decode_float(s->decoder.p, nullptr, 0, monoBuffer, c_monoSamples, 0);
 			if (nsamples > 0)
 			{
 				const uint32_t outputSamples = s->outputResampler.outputSamples(nsamples);
 				const size_t existingSize = s->incomingData.size();
 				s->incomingData.reserve(existingSize + outputSamples);
-				s->outputResampler.resampleMono(e->monoBuffer, nsamples, s->incomingData.data() + existingSize, outputSamples);
+				s->outputResampler.resampleMono(monoBuffer, nsamples, s->incomingData.data() + existingSize, outputSamples);
 			}
 		}
 	}
@@ -236,13 +208,13 @@ void voice::engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uin
 
 		if (s->decoder.p && incomingSequence >= s->incomingSequence)
 		{
-			const int nsamples = opus_decode_float(s->decoder.p, packet, audioPacketSize, e->monoBuffer, Engine::c_nmonoBuffer, 0);
+			const int nsamples = opus_decode_float(s->decoder.p, packet, audioPacketSize, monoBuffer, c_monoSamples, 0);
 			if (nsamples > 0)
 			{
 				const uint32_t outputSamples = s->outputResampler.outputSamples(nsamples);
 				const size_t existingSize = s->incomingData.size();
 				s->incomingData.resize(existingSize + outputSamples);
-				s->outputResampler.resampleMono(e->monoBuffer, nsamples, s->incomingData.data() + existingSize, outputSamples);
+				s->outputResampler.resampleMono(monoBuffer, nsamples, s->incomingData.data() + existingSize, outputSamples);
 			}
 		}
 		
@@ -252,15 +224,4 @@ void voice::engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uin
 	}
 
 	s->incomingSequence = incomingSequence;
-}
-
-uint32_t voice::engineGetSourceAudio(Engine* /*e*/, Source* s, const float** monoSamples)
-{
-	*monoSamples = s->incomingData.data();
-	return static_cast<uint32_t>(s->incomingData.size());
-}
-
-void voice::engineConsumeSourceAudio(Engine* /*e*/, Source* s, uint32_t samples)
-{
-	s->incomingData.erase(s->incomingData.begin(), s->incomingData.begin() + samples);
 }

@@ -98,3 +98,21 @@ void Source::swap(Source& other)
 	decoder = std::move(other.decoder);
 	other.decoder.p = nullptr;
 }
+
+uint32_t Source::getSourceAudio(const float** monoSamples)
+{
+	*monoSamples = incomingData.data();
+	return static_cast<uint32_t>(incomingData.size());
+}
+
+void Source::consumeSourceAudio(uint32_t samples)
+{
+	incomingData.erase(incomingData.begin(), incomingData.begin() + samples);
+}
+
+std::vector<float> Source::takeAllSourceAudio()
+{
+	std::vector<float> temp;
+	temp.swap(incomingData);
+	return std::move(temp);
+}

@@ -30,7 +30,6 @@
 #include <thread>
 #include <vector>
 #include <tiny/audio/capture.h>
-#include <tiny/audio/enumutil.h>
 #include <tiny/audio/render.h>
 #include <tiny/audio/resample.h>
 #include <tiny/platform.h>
@@ -84,10 +83,7 @@ static void renderThread()
 	{
 		if (!device)
 		{
-			if (!device)
-			{
-				device = audio::findRenderDeviceBySubstring_utf16(reinterpret_cast<const int16_t*>(L"G930"), c_sampleRate);
-			}
+			device = audio::acquireDefaultRenderDevice(c_sampleRate);
 			if (!device || !device->start())
 			{
 				return;
@@ -127,24 +123,20 @@ int main()
 	if (!microphone || !microphone->start())
 		return -1;
 
-	voice::Engine* engine = voice::engineCreate(microphone, c_sampleRate);
-	if (!engine)
-		return -1;
-
+	voice::Engine engine(microphone, c_sampleRate);
 	voice::Source source;
-	voice::engineAddSource(engine, &source);
+	engine.addSource(&source);
 
 	uint8_t voicePacket[1200];
 	for (;;)
 	{
-		uint32_t nvoicePacket = voice::engineGeneratePacket(engine, voicePacket, sizeof(voicePacket));
+		uint32_t nvoicePacket = engine.generatePacket(voicePacket, sizeof(voicePacket));
 		if (nvoicePacket)
 		{
-			voice::engineProcessPacket(engine, &source, voicePacket, nvoicePacket);
+			engine.processPacket(&source, voicePacket, nvoicePacket);
 		}
 
-		std::vector<float> data;
-		data.swap(source.incomingData);
+		std::vector<float> data = source.takeAllSourceAudio();
 		{
 			std::unique_lock<std::mutex> l(g_chatSamplesLock);
 			g_chatSamples.insert(g_chatSamples.end(), data.data(), data.data() + data.size());

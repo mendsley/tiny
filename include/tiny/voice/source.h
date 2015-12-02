@@ -37,11 +37,29 @@ namespace tiny
 {
 	namespace voice
 	{
-		struct Engine;
+		class Engine;
 
 		// Voice engine source
 		class Source
 		{
+			friend Engine;
+		public:
+			
+			bool valid();
+			void reset(uint32_t sampleRate);
+
+			void swap(Source& other);
+
+			uint32_t getSourceAudio(const float** monoSamples);
+			void consumeSourceAudio(uint32_t samples);
+
+			std::vector<float> takeAllSourceAudio();
+
+		private:
+			std::vector<float> incomingData;
+			audio::resample::Linear outputResampler;
+			uint32_t incomingSequence;
+			
 			struct Decoder
 			{
 				Decoder();
@@ -59,16 +77,6 @@ namespace tiny
 				} space;
 			};
 
-		public:
-			
-			bool valid();
-			void reset(uint32_t sampleRate);
-
-			void swap(Source& other);
-
-			std::vector<float> incomingData;
-			audio::resample::Linear outputResampler;
-			uint32_t incomingSequence;
 			Decoder decoder;
 		};
 	}

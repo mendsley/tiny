@@ -29,26 +29,47 @@
 
 #include <stdint.h>
 
+struct OpusEncoder;
+
+namespace webrtc { class AudioProcessing; }
+
 namespace tiny
 {
 	namespace audio { class ICaptureDevice; }
 
 	namespace voice
 	{
-		struct Engine;
 		class Source;
 
-		Engine* engineCreate(audio::ICaptureDevice* microphone, uint32_t sampleRate = 48000);
-		void engineRelease(Engine* e);
+		class Engine
+		{
+		public:
 
-		void engineAddSource(Engine* e, Source* s);
-		void engineRemoveSource(Engine* e, Source* s);
+			explicit Engine(audio::ICaptureDevice* microphone, uint32_t sampleRate = 48000);
+			~Engine();
 
-		uint32_t engineGeneratePacket(Engine* e, uint8_t* packet, uint32_t npacket);
-		void engineProcessPacket(Engine* e, Source* s, const uint8_t* packet, uint32_t npacket);
+			void addSource(Source* s);
+			void removeSource(Source* s);
 
-		uint32_t engineGetSourceAudio(Engine* e, Source* s, const float** monoSamples);
-		void engineConsumeSourceAudio(Engine* e, Source* s, uint32_t samples);
+			uint32_t generatePacket(uint8_t* packet, uint32_t npacket);
+			void processPacket(Source* s, const uint8_t* packet, uint32_t npacket);
+
+		private:
+			Engine(const Engine&); // = delete
+			Engine& operator=(const Engine&); // = delete
+
+			static const int c_monoSamples = 480; // 10ms @ 48khz
+
+			audio::ICaptureDevice* const mic;
+			OpusEncoder* encoder;
+			webrtc::AudioProcessing* outgoingProcessor;
+			const uint32_t samplesPer10ms;
+			const uint32_t outputSampleRate;
+			uint32_t outgoingSequence;
+			const int channels;
+			const int micSampleRate;
+			float monoBuffer[c_monoSamples];
+		};
 	}
 }
 
