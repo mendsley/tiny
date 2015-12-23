@@ -77,7 +77,7 @@ namespace
 
 		virtual int channels() const
 		{
-			return deviceChannels;
+			return 1;
 		}
 
 		virtual bool start()
@@ -99,10 +99,10 @@ namespace
 		virtual const float* get10msOfSamples()
 		{
 			// prune any data still in the buffer
-			int currentSize = static_cast<int>(buffer.size())/deviceChannels;
+			int currentSize = static_cast<int>(buffer.size());
 			if (currentSize >= deviceSamplesPer10ms)
 			{
-				buffer.erase(buffer.begin(), buffer.begin() + deviceChannels*deviceSamplesPer10ms);
+				buffer.erase(buffer.begin(), buffer.begin() + deviceSamplesPer10ms);
 				currentSize -= deviceSamplesPer10ms;
 
 				// if we still have enough samples, return those
@@ -137,7 +137,11 @@ namespace
 			}
 
 			const float* floatData = reinterpret_cast<const float*>(data);
-			buffer.insert(buffer.end(), floatData, floatData+framesAvailable*deviceChannels);
+			buffer.reserve(currentSize+framesAvailable);
+			for (int ii = 0; ii != framesAvailable; ++ii)
+			{
+				buffer.push_back(floatData[ii*deviceChannels]);
+			}
 			hr = captureClient->ReleaseBuffer(framesAvailable);
 			if (FAILED(hr))
 			{

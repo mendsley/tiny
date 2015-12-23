@@ -72,34 +72,37 @@ uint32_t net::enumerateAdapters(Address* addresses, uint32_t naddresses)
 	uint32_t numAdpaters = 0;
 	for (IP_ADAPTER_ADDRESSES* adapter = adapters; adapter; adapter = adapter->Next)
 	{
-		for (IP_ADAPTER_UNICAST_ADDRESS* address = adapter->FirstUnicastAddress; address; address = address->Next)
+		if (adapter->OperStatus == IfOperStatusUp)
 		{
-			Address addr;
-
-			const sockaddr* sockaddr = address->Address.lpSockaddr;
-			switch (sockaddr->sa_family)
+			for (IP_ADAPTER_UNICAST_ADDRESS* address = adapter->FirstUnicastAddress; address; address = address->Next)
 			{
-			case AF_INET:
-				addr.family = AddressFamily::IPv4;
-				memcpy(&addr.u.v4, &reinterpret_cast<const sockaddr_in*>(sockaddr)->sin_addr, sizeof(addr.u.v4));
-				break;
+				Address addr;
 
-			case AF_INET6:
-				addr.family = AddressFamily::IPv6;
-				memcpy(&addr.u.v6, &reinterpret_cast<const sockaddr_in6*>(sockaddr)->sin6_addr, sizeof(addr.u.v6));
-				break;
+				const sockaddr* sockaddr = address->Address.lpSockaddr;
+				switch (sockaddr->sa_family)
+				{
+				case AF_INET:
+					addr.family = AddressFamily::IPv4;
+					memcpy(&addr.u.v4, &reinterpret_cast<const sockaddr_in*>(sockaddr)->sin_addr, sizeof(addr.u.v4));
+					break;
 
-			default:
-				continue; // unsupported protocol
-			}
+				case AF_INET6:
+					addr.family = AddressFamily::IPv6;
+					memcpy(&addr.u.v6, &reinterpret_cast<const sockaddr_in6*>(sockaddr)->sin6_addr, sizeof(addr.u.v6));
+					break;
 
-			++numAdpaters;
+				default:
+					continue; // unsupported protocol
+				}
 
-			if (naddresses)
-			{
-				numAdpaters = naddresses;
-				*addresses = addr;
-				++addresses;
+				++numAdpaters;
+
+				if (naddresses)
+				{
+					numAdpaters = naddresses;
+					*addresses = addr;
+					++addresses;
+				}
 			}
 		}
 	}

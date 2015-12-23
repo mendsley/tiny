@@ -24,6 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,11 +48,11 @@ Engine::Engine(ICaptureDevice* mic, uint32_t sampleRate)
 	, samplesPer10ms(mic ? mic->samplesPer10ms() : 0)
 	, outputSampleRate(sampleRate)
 	, outgoingSequence(0)
-	, channels(mic ? mic->channels() : 0)
 	, micSampleRate(mic ? mic->sampleRate() : 0)
 {
 	if (mic)
 	{
+		assert(mic->channels() == 1);
 		int requiredSpce = opus_encoder_get_size(1);
 		if (requiredSpce > sizeof(encoderSpace))
 		{
@@ -89,10 +90,6 @@ Engine::~Engine()
 	{
 		delete outgoingProcessor;
 	}
-	if (encoder)
-	{
-		opus_encoder_destroy(encoder);
-	}
 }
 
 void Engine::addSource(Source* s)
@@ -128,7 +125,7 @@ uint32_t Engine::generatePacket(uint8_t* packet, uint32_t npacket)
 
 		// process the audio
 		float* out[1] = {monoBuffer};
-		if (webrtc::AudioProcessing::kNoError == outgoingProcessor->ProcessStream(&incoming, webrtc::StreamConfig(micSampleRate, channels, false), webrtc::StreamConfig(48000, 1, false), out))
+		if (webrtc::AudioProcessing::kNoError == outgoingProcessor->ProcessStream(&incoming, webrtc::StreamConfig(micSampleRate, 1, false), webrtc::StreamConfig(48000, 1, false), out))
 		{
 			if (outgoingProcessor->voice_detection()->stream_has_voice())
 			{

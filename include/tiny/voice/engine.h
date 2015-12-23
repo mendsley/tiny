@@ -66,7 +66,6 @@ namespace tiny
 			const uint32_t samplesPer10ms;
 			const uint32_t outputSampleRate;
 			uint32_t outgoingSequence;
-			const int channels;
 			const int micSampleRate;
 			float monoBuffer[c_monoSamples];
 

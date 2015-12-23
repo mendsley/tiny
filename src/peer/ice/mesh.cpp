@@ -200,18 +200,21 @@ Mesh* peer::meshCreate(uint32_t maxPeers, uint64_t localId, uint16_t port)
 
 		uint16_t candidatePort = endianToBig(port);
 		Socket s;
-		if (socketCreateUDP(&s, addresses[ii], &candidatePort))
+		if (!socketCreateUDP(&s, addresses[ii], &candidatePort))
 		{
-			LocalCandidate cand;
-			cand.s = s;
-			cand.priority = priorityForHostAddress(addresses[ii]);
-			cand.foundation = foundationForHostAddress(addresses[ii]);
-			cand.address = addresses[ii];
-			cand.port = candidatePort;
-			cand.waitingOnServerReflexive = false;
-			cand.hasServerReflexiveAddress = false;
-			m->localCandidates.push_back(cand);
+			meshDestroy(m);
+			return nullptr;
 		}
+
+		LocalCandidate cand;
+		cand.s = s;
+		cand.priority = priorityForHostAddress(addresses[ii]);
+		cand.foundation = foundationForHostAddress(addresses[ii]);
+		cand.address = addresses[ii];
+		cand.port = candidatePort;
+		cand.waitingOnServerReflexive = false;
+		cand.hasServerReflexiveAddress = false;
+		m->localCandidates.push_back(cand);
 	}
 
 	m->localCandidates.shrink_to_fit();
@@ -676,7 +679,6 @@ static void processPeerStunRequest(Mesh* m, peerconn* p, const peerBindingReques
 		attr = stunAppendFingerprint8(attr, p->keepAlive);
 
 		p->localCandidate = check->localCandidate;
-		p->recvTimeout = now + c_peerReceiveTimeout*m->timeFreqMS;
 		p->state = PeerState::Connected;
 		p->connectivityChecks.clear();
 		p->connectivityChecks.shrink_to_fit();
@@ -1006,6 +1008,7 @@ static void updateRunning(Mesh* m)
 						
 							if (p)
 							{
+								p->recvTimeout = now + c_peerReceiveTimeout*m->timeFreqMS;
 								processPeerStunRequest(m, p, bindingRequest, now);
 							}
 							else
@@ -1041,28 +1044,34 @@ static void updateRunning(Mesh* m)
 						}
 					}
 					
-					if (p && p->state == PeerState::Negotiating)
+					if (p)
 					{
-						// TODO: downgrade open/restrited/moderate NAT here
-
-						ConnectivityCheck* check = &p->connectivityChecks[remoteIndex];
-						check->state = CheckState::Succeeded;
-						if (p->controlling && check->nominated)
+						p->recvTimeout = now + c_peerReceiveTimeout*m->timeFreqMS;
+						if (p->state == PeerState::Negotiating)
 						{
-							const RemoteCandidate& candidate = p->remoteCandidates[check->remoteCandidate];
-							addressFrom(&p->sockaddr, candidate.address, candidate.port);
+							// TODO: downgrade open/restrited/moderate NAT here
 
-							// build keep-alive packet
-							uint8_t* attr = stunGenerateBindingRequest(m->rand, p->keepAlive, 52);
-							attr = stunAppendUsernameAttribute20(attr, m->localId, p->id);
-							attr = stunAppendMessageIntegrityAttribute24(attr, p->keepAlive, m->sessionKey.data(), static_cast<uint32_t>(m->sessionKey.size()));
-							attr = stunAppendFingerprint8(attr, p->keepAlive);
+							ConnectivityCheck* check = &p->connectivityChecks[remoteIndex];
+							check->state = CheckState::Succeeded;
+							if (p->controlling && check->nominated)
+							{
+								const RemoteCandidate& candidate = p->remoteCandidates[check->remoteCandidate];
+								addressFrom(&p->sockaddr, candidate.address, candidate.port);
 
-							p->localCandidate = check->localCandidate;
-							p->recvTimeout = now + c_peerReceiveTimeout*m->timeFreqMS;
-							p->state = PeerState::Connected;
-							p->connectivityChecks.clear();
-							p->connectivityChecks.shrink_to_fit();
+								// build keep-alive packet
+								uint8_t* attr = stunGenerateBindingRequest(m->rand, p->keepAlive, 52);
+								attr = stunAppendUsernameAttribute20(attr, m->localId, p->id);
+								attr = stunAppendMessageIntegrityAttribute24(attr, p->keepAlive, m->sessionKey.data(), static_cast<uint32_t>(m->sessionKey.size()));
+								attr = stunAppendFingerprint8(attr, p->keepAlive);
+
+								p->localCandidate = check->localCandidate;
+								p->state = PeerState::Connected;
+								p->connectivityChecks.clear();
+								p->connectivityChecks.shrink_to_fit();
+							}
+						}
+						else
+						{
 						}
 					}
 				}
