@@ -40,15 +40,15 @@ using namespace tiny::peer;
 
 static void meshThread(const uint8_t* key, uint32_t nkey, uint64_t id, std::future<std::vector<uint8_t>> incomingAddress, std::promise<std::vector<uint8_t>>& outgoingAddress)
 {
-	Mesh* m = meshCreate(7, id, 0);
+	IMesh* m = meshCreateICE(7, id, 0);
 	if (!m)
 	{
 		return;
 	}
 
-	meshSetSessionKey(m, key, nkey);
+	m->setSessionKey(key, nkey);
 
-	if (!meshStartSession(m, "stun.l.google.com", 19302))
+	if (!m->startSession("stun.l.google.com", 19302))
 	{
 		return;
 	}
@@ -56,75 +56,75 @@ static void meshThread(const uint8_t* key, uint32_t nkey, uint64_t id, std::futu
 	// wait for local address
 	for (bool waiting = true; waiting;)
 	{
-		switch (meshUpdate(m))
+		switch (m->update())
 		{
 		case MeshState::StartComplete:
 			waiting = false;
 			break;
 		case MeshState::Invalid:
-			meshDestroy(m);
+			m->destroy();
 			return;
 		}
 	}
 
 	// get local address
-	uint32_t localAddrSize = meshLocalAddressSize(m);
+	uint32_t localAddrSize = m->localAddressSize();
 	if (!localAddrSize)
 	{
-		meshDestroy(m);
+		m->destroy();
 		return;
 	}
 
 	std::vector<uint8_t> localAddress(localAddrSize);
-	meshSerializeLocalAddress(m, localAddress.data());
+	m->serializeLocalAddress(localAddress.data());
 	outgoingAddress.set_value(std::move(localAddress));
 
 	std::vector<uint8_t> remoteAddr = incomingAddress.get();
-	uint32_t peer = meshConnectToPeer(m, (id+1)%2, remoteAddr.data(), static_cast<uint32_t>(remoteAddr.size()));
+	uint32_t peer = m->connectToPeer((id+1)%2, remoteAddr.data(), static_cast<uint32_t>(remoteAddr.size()));
 	if (peer == InvalidMeshPeer)
 	{
-		meshDestroy(m);
+		m->destroy();
 		return;
 	}
 
 	// wait for peer to connect
 	for (bool waiting = true; waiting;)
 	{
-		if (MeshState::Invalid == meshUpdate(m))
+		if (MeshState::Invalid == m->update())
 		{
-			meshDestroy(m);
+			m->destroy();
 			return;
 		}
 
-		switch (meshPeerState(m, peer))
+		switch (m->peerState(peer))
 		{
 		case PeerState::Connected:
 			waiting = false;
 			break;
 		case PeerState::Invalid:
-			meshDestroy(m);
+			m->destroy();
 			return;
 		}
 	}
 
 	uint32_t packetsReceived = 0;
 	uint32_t packetsAcked = 0;
-	while (meshPeerState(m, peer) == PeerState::Connected)
+	while (m->peerState(peer) == PeerState::Connected)
 	{
-		if (MeshState::Invalid == meshUpdate(m))
+		if (MeshState::Invalid == m->update())
 		{
-			meshDestroy(m);
+			m->destroy();
 			return;
 		}
 
 		char data[9] = "hello";
 		memcpy(&data[5], &packetsReceived, sizeof(packetsReceived));
 
-		meshSendUnreliableDataToPeer(m, peer, data, sizeof(data));
+		m->sendUnreliableDataToPeer(peer, data, sizeof(data));
 
 		Message** messages;
 		uint32_t nmessages;
-		if (meshReceive(m, peer, &messages, &nmessages))
+		if (m->receive(peer, &messages, &nmessages))
 		{
 			for (uint32_t ii = 0; ii < nmessages; ++ii)
 			{
@@ -145,7 +145,7 @@ static void meshThread(const uint8_t* key, uint32_t nkey, uint64_t id, std::futu
 		}
 	}
 
-	meshDestroy(m);
+	m->destroy();
 }
 
 int main()
