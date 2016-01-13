@@ -1,5 +1,5 @@
 /**
- * Copyright 2011-2015 Matthew Endsley
+ * Copyright 2011-2016 Matthew Endsley
  * All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,21 +24,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <stdlib.h>
-#include <vector>
+#include "tiny/net2/transport.h"
 
-#include <tiny/net2/transport.h>
+using namespace tiny;
+using namespace tiny::net2;
 
-extern tiny::net2::ITransportProvider* createUdp4Transport(uint16_t port);
-extern tiny::net2::ITransportProvider* createUdp6Transport(uint16_t port);
-
-int main()
+ITransportProvider::~ITransportProvider()
 {
-	auto transport = createUdp6Transport(27015);
-	int nadapters = transport->enumerateLocalAddresses(nullptr, 0);
+}
 
-	std::vector<tiny::net2::PlatformAddress> addresses(nadapters);
-	transport->enumerateLocalAddresses(addresses.data(), nadapters);
-
-	transport->release();
+ITransport::~ITransport()
+{
 }
