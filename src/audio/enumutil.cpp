@@ -56,7 +56,7 @@ namespace
 		{
 		}
 
-		virtual void onDevice_utf16(uint32_t moduleId, uint32_t deviceId, const int16_t* description)
+		virtual void onDevice_utf16(uint32_t moduleId, uint32_t deviceId, const int16_t* description, const int16_t* hardwareIdentifier)
 		{
 			const size_t len = utf16_len(description);
 			const int16_t* descriptionEnd = description+len;
@@ -77,6 +77,40 @@ namespace
 		const int16_t* const query;
 		const size_t nquery;
 	};
+
+	class ByIdEnumerator : public IDeviceEnumeration
+	{
+	public:
+		ByIdEnumerator(const int16_t* query, size_t nquery)
+			: moduleId(0)
+			, deviceId(0)
+			, query(query)
+			, nquery(nquery)
+		{
+		}
+
+		virtual void onDevice_utf16(uint32_t moduleId, uint32_t deviceId, const int16_t* description, const int16_t* hardwareIdentifier)
+		{
+			const size_t len = utf16_len(hardwareIdentifier);
+			if (len == nquery)
+			{
+				if (0 == memcmp(hardwareIdentifier, query, len))
+				{
+					this->moduleId = moduleId;
+					this->deviceId = deviceId;
+				}
+			}
+		}
+
+		uint32_t moduleId;
+		uint32_t deviceId;
+	private:
+		ByIdEnumerator(const ByIdEnumerator&); // = delete
+		ByIdEnumerator& operator=(const ByIdEnumerator&); // = delete
+
+		const int16_t* const query;
+		const size_t nquery;
+	};
 }
 
 IRenderDevice* audio::findRenderDeviceBySubstring_utf16(const int16_t* substr, int sampleRate)
@@ -91,9 +125,33 @@ IRenderDevice* audio::findRenderDeviceBySubstring_utf16(const int16_t* substr, i
 	return nullptr;
 }
 
+IRenderDevice* audio::findRenderDeviceById_utf16(const int16_t* identifier, int sampleRate)
+{
+	ByIdEnumerator e(identifier, utf16_len(identifier));
+	enumerateRenderDevices(&e);
+	if (e.moduleId && e.deviceId)
+	{
+		return acquireRenderDevice(e.moduleId, e.deviceId, sampleRate);
+	}
+
+	return nullptr;
+}
+
 ICaptureDevice* audio::findCaptureDeviceBySubstring_utf16(const int16_t* substr)
 {
 	ByNameEnumerator e(substr, utf16_len(substr));
+	enumerateRenderDevices(&e);
+	if (e.moduleId && e.deviceId)
+	{
+		return acquireCaptureDevice(e.moduleId, e.deviceId);
+	}
+
+	return nullptr;
+}
+
+ICaptureDevice* audio::findCaptureDeviceById_utf16(const int16_t* identifier)
+{
+	ByIdEnumerator e(identifier, utf16_len(identifier));
 	enumerateRenderDevices(&e);
 	if (e.moduleId && e.deviceId)
 	{

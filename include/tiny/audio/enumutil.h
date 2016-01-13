@@ -37,7 +37,9 @@ namespace tiny
 		class ICaptureDevice;
 
 		IRenderDevice* findRenderDeviceBySubstring_utf16(const int16_t* substr, int sampleRate);
+		IRenderDevice* findRenderDeviceById_utf16(const int16_t* identifier, int sampleRate);
 		ICaptureDevice* findCaptureDeviceBySubstring_utf16(const int16_t* substr);
+		ICaptureDevice* findCaptureDeviceById_utf16(const int16_t* identifier);
 	}
 }
 

@@ -336,7 +336,8 @@ static bool xaudio2EnumerateDevices(DeviceType::E type, uint32_t moduleId, IDevi
 		if (SUCCEEDED(ctx.device->GetDeviceDetails(ii, &details)))
 		{
 			static_assert(sizeof(details.DisplayName[0]) == sizeof(int16_t), "XAudio2 is returning non utf16 data");
-			e->onDevice_utf16(moduleId, ii+ii, reinterpret_cast<const int16_t*>(details.DisplayName));
+			static_assert(sizeof(details.DeviceID[0]) == sizeof(int16_t), "XAudio2 is returning non utf16 data");
+			e->onDevice_utf16(moduleId, ii+ii, reinterpret_cast<const int16_t*>(details.DisplayName), reinterpret_cast<const int16_t*>(details.DeviceID));
 		}
 	}
 

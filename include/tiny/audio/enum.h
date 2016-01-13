@@ -36,7 +36,7 @@ namespace tiny
 		// User callback for device enumeration
 		struct IDeviceEnumeration
 		{
-			virtual void onDevice_utf16(uint32_t moduleId, uint32_t deviceId, const int16_t* friendlyName) = 0;
+			virtual void onDevice_utf16(uint32_t moduleId, uint32_t deviceId, const int16_t* friendlyName, const int16_t* hardwareIdentifier) = 0;
 		};
 
 		// Enumerate available audio render devices

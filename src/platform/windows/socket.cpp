@@ -77,6 +77,13 @@ bool net::socketCreateUDP(Socket* out, const Address& addr, uint16_t* bePort)
 		return false;
 	}
 
+	const int exclusive = 1;
+	if (0 != setsockopt(s, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, reinterpret_cast<const char*>(&exclusive), sizeof(exclusive)))
+	{
+		closesocket(s);
+		return false;
+	}
+
 	PlatformSocketAddr saddr;
 	addressFrom(&saddr, addr, *bePort);
 	if (0 != bind(s, reinterpret_cast<const sockaddr*>(&saddr.storage), saddr.size))

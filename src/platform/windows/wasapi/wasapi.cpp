@@ -32,6 +32,7 @@ using namespace tiny::audio;
 
 #if TINY_AUDIO_ENABLE_WASAPI
 
+#include <InitGuid.h>
 #include <Audioclient.h>
 #include <mmdeviceapi.h>
 #include <functiondiscoverykeys_devpkey.h>
@@ -138,7 +139,7 @@ namespace
 
 			const float* floatData = reinterpret_cast<const float*>(data);
 			buffer.reserve(currentSize+framesAvailable);
-			for (int ii = 0; ii != framesAvailable; ++ii)
+			for (UINT ii = 0; ii != framesAvailable; ++ii)
 			{
 				buffer.push_back(floatData[ii*deviceChannels]);
 			}
@@ -636,23 +637,23 @@ static bool wasapiEnumerateDevices(DeviceType::E type, uint32_t moduleId, IDevic
 			}
 
 			const uint32_t deviceId = fnv1a(id, 2*wcslen(id));
-			CoTaskMemFree(id);
 
 			IPropertyStore* props;
 			if (SUCCEEDED(device->OpenPropertyStore(STGM_READ, &props)))
 			{
-				PROPVARIANT value;
-				PropVariantInit(&value);
-				if(SUCCEEDED(props->GetValue(PKEY_Device_FriendlyName, &value)))
+				PROPVARIANT friendlyName;
+				PropVariantInit(&friendlyName);
+				if(SUCCEEDED(props->GetValue(PKEY_Device_FriendlyName, &friendlyName)))
 				{
-					static_assert(sizeof(value.pwszVal[0]) == sizeof(int16_t), "WASAPI returning non utf-16 data");
-					e->onDevice_utf16(moduleId, deviceId, reinterpret_cast<int16_t*>(value.pwszVal));
+					static_assert(sizeof(friendlyName.pwszVal[0]) == sizeof(int16_t), "WASAPI returning non utf-16 data");
+					e->onDevice_utf16(moduleId, deviceId, reinterpret_cast<const int16_t*>(friendlyName.pwszVal), reinterpret_cast<const int16_t*>(id));
 				}
 
-				PropVariantClear(&value);
+				PropVariantClear(&friendlyName);
 				props->Release();
 			}
 
+			CoTaskMemFree(id);
 			device->Release();
 		}
 	}
