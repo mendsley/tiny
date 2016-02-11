@@ -104,6 +104,7 @@ namespace
 
 		virtual int acquireBuffer(float** buffer);
 		virtual void commitBuffer();
+		virtual void discardBuffer();
 
 	private:
 		virtual ~XAudio2RenderDevice();
@@ -227,6 +228,11 @@ void XAudio2RenderDevice::commitBuffer()
 	++bufferIndex;
 
 	sourceVoice->SubmitSourceBuffer(&packet);
+}
+
+void XAudio2RenderDevice::discardBuffer()
+{
+	ReleaseSemaphore(bufferSema, 1, nullptr);
 }
 
 #if TINY_AUDIO_XAUDIO2_USE_DYNAMIC_LOADING

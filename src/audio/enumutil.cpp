@@ -152,7 +152,7 @@ ICaptureDevice* audio::findCaptureDeviceBySubstring_utf16(const int16_t* substr)
 ICaptureDevice* audio::findCaptureDeviceById_utf16(const int16_t* identifier)
 {
 	ByIdEnumerator e(identifier, utf16_len(identifier));
-	enumerateRenderDevices(&e);
+	enumerateCapureDevices(&e);
 	if (e.moduleId && e.deviceId)
 	{
 		return acquireCaptureDevice(e.moduleId, e.deviceId);

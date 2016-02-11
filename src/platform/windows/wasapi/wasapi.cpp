@@ -139,7 +139,7 @@ namespace
 
 			const float* floatData = reinterpret_cast<const float*>(data);
 			buffer.reserve(currentSize+framesAvailable);
-			for (UINT ii = 0; ii != framesAvailable; ++ii)
+			for (int ii = 0; ii != framesAvailable; ++ii)
 			{
 				buffer.push_back(floatData[ii*deviceChannels]);
 			}
@@ -247,6 +247,11 @@ namespace
 			// notify the processing thread
 			++bufferIndex;
 			ReleaseSemaphore(frameCompleteSem, 1, nullptr);
+		}
+
+		virtual void discardBuffer()
+		{
+			ReleaseSemaphore(frameReadySem, 1, nullptr);
 		}
 
 	private:

@@ -51,6 +51,12 @@ namespace tiny
 
 		return v;
 	}
+
+	template<uint32_t size>
+	static inline uint32_t fnv1a_cstr(const char (&str)[size])
+	{
+		return fnv1a(str, size - 1);
+	}
 }
 
 #endif // TINY_HASH__FNV_H

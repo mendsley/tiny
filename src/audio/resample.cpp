@@ -170,7 +170,7 @@ void Linear::resampleStereo(const float* in, int samplesIn, float* out, int samp
 	while (out < outEnd)
 	{
 		float posFloor = floorf(pos);
-		int index = 2*static_cast<int>(floorf(posFloor));
+		int index = 2*static_cast<int>(posFloor);
 		out[0] = in[index-2] + (in[index+0] - in[index-2]) * (pos - posFloor);
 		out[1] = in[index-1] + (in[index+1] - in[index-1]) * (pos - posFloor);
 

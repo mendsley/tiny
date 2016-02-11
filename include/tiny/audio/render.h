@@ -45,6 +45,7 @@ namespace tiny
 
 			virtual int acquireBuffer(float** buffer) = 0;
 			virtual void commitBuffer() = 0;
+			virtual void discardBuffer() = 0;
 
 		protected:
 			virtual ~IRenderDevice() = 0;

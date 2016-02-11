@@ -32,6 +32,10 @@
 #include <string.h>
 #include <algorithm>
 #include <vector>
+#if TINY_PLATFORM_WINDOWS
+#include <eh.h>
+#endif
+#include <thread>
 #include "peer/ice/candidate.h"
 #include "peer/ice/foundation.h"
 #include "peer/ice/priority.h"
@@ -151,14 +155,17 @@ namespace
 
 		~MeshICE()
 		{
-			// destroy sockets
-			for (size_t ii = 0, nn = localCandidates.size(); ii != nn; ++ii)
-			{
-				if (localCandidates[ii].s != InvalidSocket)
+			// destroy sockets on another thread (closesocket is blocking in VR)
+			std::thread([](std::vector<LocalCandidate> localCandidates) {
+				// destroy sockets
+				for (size_t ii = 0, nn = localCandidates.size(); ii != nn; ++ii)
 				{
-					socketClose(localCandidates[ii].s);
+					if (localCandidates[ii].s != InvalidSocket)
+					{
+						socketClose(localCandidates[ii].s);
+					}
 				}
-			}
+			}, std::move(localCandidates)).detach();
 
 			// free remaining messages
 			for (size_t ii = 0, nn = peers.size(); ii != nn; ++ii)

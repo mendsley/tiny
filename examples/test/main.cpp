@@ -25,20 +25,7 @@
  */
 
 #include <stdlib.h>
-#include <vector>
-
-#include <tiny/net2/transport.h>
-
-extern tiny::net2::ITransportProvider* createUdp4Transport(uint16_t port);
-extern tiny::net2::ITransportProvider* createUdp6Transport(uint16_t port);
 
 int main()
 {
-	auto transport = createUdp6Transport(27015);
-	int nadapters = transport->enumerateLocalAddresses(nullptr, 0);
-
-	std::vector<tiny::net2::PlatformAddress> addresses(nadapters);
-	transport->enumerateLocalAddresses(addresses.data(), nadapters);
-
-	transport->release();
 }
