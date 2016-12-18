@@ -1,0 +1,6 @@
+[submodule "3rdparty/webrtc"]
+	path = 3rdparty/webrtc
+	url = https://chromium.googlesource.com/external/webrtc
+[submodule "3rdparty/opus"]
+	path = 3rdparty/opus
+	url = git://github.com/xiph/opus
